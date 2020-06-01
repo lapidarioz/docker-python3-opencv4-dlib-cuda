@@ -1,4 +1,4 @@
-# docker-python3-opencv3-dlib-cuda
+# docker-python3-opencv4-dlib-cuda
 
 * Python 3
 * OpenCV 4.1.1
