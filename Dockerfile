@@ -1,131 +1,126 @@
-FROM nvidia/cuda:10.1-cudnn7-devel
-
-# from https://qiita.com/kndt84/items/9524b1ab3c4df6de30b8
+FROM tensorflow/tensorflow:2.2.1-gpu
 
 ENV DEBIAN_FRONTEND noninteractive
 
-ARG OPENCV_VERSION='4.1.1'
+ARG OPENCV_VERSION='4.5.0'
 ARG GPU_ARCH='7.5'
-WORKDIR /opt
+WORKDIR /
 
-# Build tools
 RUN apt update && \
     apt install -y \
-    sudo \
-    tzdata \
-    git \
+    build-essential \
     cmake \
-    wget \
     unzip \
-    build-essential
-
-# Media I/O:
-RUN sudo apt install -y \
-    zlib1g-dev \
+    pkg-config  \
     libjpeg-dev \
-    libwebp-dev \
     libpng-dev \
-    libtiff5-dev \
-    libopenexr-dev \
-    libgdal-dev \
-    libgtk2.0-dev
-
-# Video I/O:
-RUN sudo apt install -y \
-    libdc1394-22-dev \
+    libtiff-dev  \
     libavcodec-dev \
     libavformat-dev \
     libswscale-dev \
-    libtheora-dev \
-    libvorbis-dev \
+    libv4l-dev \
     libxvidcore-dev \
     libx264-dev \
+    x264 \
+    libgtk-3-dev \
+    libatlas-base-dev \
+    gfortran \
     yasm \
-    libopencore-amrnb-dev \
-    libopencore-amrwb-dev \
-    libv4l-dev \
-    libxine2-dev \
-    libgstreamer1.0-dev \
-    libgstreamer-plugins-base1.0-dev
-
-# Parallelism and linear algebra libraries:
-RUN sudo apt install -y \
-    libtbb-dev \
-    libeigen3-dev
-
-# Python:
-RUN sudo apt install -y \
-    python3-dev \
-    python3-tk \
-    python3-numpy
+    libtbb2 \
+	libtbb-dev \
+	libjpeg-dev \
+	libpng-dev \
+	libtiff-dev \
+	libpq-dev \
+	libgtk2.0-dev \
+    wget \
+    git \
+    libsm6 \
+    libxext6 \
+    libxrender-dev \
+    bzip2 \
+    libavresample-dev \
+    ibgstreamer1.0-dev \
+    libgstreamer-plugins-base1.0-dev \
+    libfaac-dev \
+    libmp3lame-dev \
+    libtheora-dev \
+    libvorbis-dev
 
 # Build OpenCV
-RUN wget https://github.com/opencv/opencv/archive/${OPENCV_VERSION}.zip && \
-    unzip ${OPENCV_VERSION}.zip && rm ${OPENCV_VERSION}.zip && \
-    mv opencv-${OPENCV_VERSION} OpenCV && \
-    cd OpenCV && \
-    wget https://github.com/opencv/opencv_contrib/archive/${OPENCV_VERSION}.zip && \
-    unzip 4.1.1.zip && \
-    mkdir build && \
-    cd build && \
-    cmake \
-      -D WITH_TBB=ON \
-      -D CMAKE_BUILD_TYPE=RELEASE \
-      -D BUILD_EXAMPLES=ON \
-      -D WITH_FFMPEG=ON \
-      -D WITH_V4L=ON \
-      -D WITH_OPENGL=ON \
-      -D WITH_CUDA=ON \
-      -D CUDA_ARCH_BIN=${GPU_ARCH} \
-      -D CUDA_ARCH_PTX=${GPU_ARCH} \
-      -D WITH_CUBLAS=ON \
-      -D WITH_CUFFT=ON \
-      -D WITH_EIGEN=ON \
-      -D EIGEN_INCLUDE_PATH=/usr/include/eigen3 \
-      -D OPENCV_EXTRA_MODULES_PATH=../opencv_contrib-4.1.1/modules/ \
-      .. && \
+RUN wget -O opencv.zip https://github.com/opencv/opencv/archive/${OPENCV_VERSION}.zip && \
+    unzip opencv.zip && rm opencv.zip && \
+    mv opencv-${OPENCV_VERSION} opencv && \
+    cd opencv && \
+    wget -O opencv_contrib.zip https://github.com/opencv/opencv_contrib/archive/${OPENCV_VERSION}.zip && \
+    unzip opencv_contrib.zip && rm opencv_contrib.zip && \
+    mv opencv_contrib-${OPENCV_VERSION} opencv_contrib && \
+    mkdir build
+
+WORKDIR /opencv/build
+
+RUN cmake \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DBUILD_PNG=OFF \
+    -DBUILD_TIFF=OFF \
+    -DBUILD_TBB=OFF \
+    -DBUILD_JPEG=OFF \
+    -DBUILD_JASPER=OFF \
+    -DBUILD_ZLIB=OFF \
+    -DBUILD_EXAMPLES=ON \
+    -DBUILD_JAVA=OFF \
+    -DBUILD_opencv_python2=OFF \
+    -DBUILD_opencv_python3=ON \
+    -DWITH_OPENCL=OFF \
+    -DWITH_OPENMP=OFF \
+    -DWITH_FFMPEG=ON \
+    -DWITH_GSTREAMER=ON \
+    -DWITH_GSTREAMER_0_10=ON \
+    -DWITH_CUDA=ON \
+    -DWITH_GTK=ON \
+    -DWITH_VTK=OFF \
+    -DWITH_TBB=ON \
+    -DWITH_1394=OFF \
+    -DWITH_OPENEXR=OFF \
+    -DCUDA_TOOLKIT_ROOT_DIR=/usr/local/cuda-11.0 \
+    -DCUDA_ARCH_BIN=${GPU_ARCH} \
+    -DCUDA_ARCH_PTX=${GPU_ARCH} \
+    -DINSTALL_C_EXAMPLES=ON \
+    -DINSTALL_TESTS=OFF \
+    -D ENABLE_FAST_MATH=1 \
+	-D CUDA_FAST_MATH=1 \
+    -D CMAKE_C_COMPILER=gcc-7 \
+    .. && \
     make all -j$(nproc) && \
     make install
 
+
+WORKDIR /
 # from https://github.com/ageitgey/face_recognition/blob/master/Dockerfile.gpu
-RUN apt update -y; apt install -y \
-git \
-cmake \
-libsm6 \
-libxext6 \
-libxrender-dev \
-ffmpeg \
-python3 \
-python3-pip  \
-bzip2
 
-RUN pip3 install scikit-build
+RUN pip install --no-cache-dir \
+        scikit-image \
+        sk-video \
+        keras
 
-# Install compilers
-
-RUN apt install -y software-properties-common
-RUN add-apt-repository ppa:ubuntu-toolchain-r/test
-RUN apt update -y; apt install -y gcc-6 g++-6
-
-RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-6 50
-RUN update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-6 50
-
-#Install dlib
+# #Install dlib
 WORKDIR / 
 
-RUN git clone -b 'v19.19' --single-branch https://github.com/davisking/dlib.git
+RUN git clone -b 'v19.21' --single-branch https://github.com/davisking/dlib.git
 RUN mkdir -p /dlib/build
 
 RUN cmake -H/dlib -B/dlib/build -DDLIB_USE_CUDA=1 -DUSE_AVX_INSTRUCTIONS=1
 RUN cmake --build /dlib/build
 
-RUN cd /dlib; python3 /dlib/setup.py install
+RUN cd /dlib; python /dlib/setup.py install
 
 WORKDIR /usr/src/files/
 
-RUN wget http://dlib.net/files/shape_predictor_68_face_landmarks.dat.bz2 && \
-    bzip2 -d shape_predictor_68_face_landmarks.dat.bz2
+# # Install the face recognition package
+RUN pip install --no-cache-dir face_recognition
 
-COPY test.py /usr/src/files/
-RUN python3 /usr/src/files/test.py
-
+# # Cleaning
+RUN apt-get autoremove -y && \
+apt-get clean && \
+rm -rf /opencv /opencv_contrib /var/lib/apt/lists/*
