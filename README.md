@@ -2,8 +2,8 @@
 
 * Python 3.6.9
 * OpenCV 4.5.0
-* DLIB 19.21
-* CUDA 11 cudnn 7.5
+* DLIB 19.20
+* CUDA 10 cudnn 7
 
 ## BUILD and RUN
 ```
